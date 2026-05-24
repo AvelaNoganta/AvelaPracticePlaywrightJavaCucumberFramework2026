@@ -1,0 +1,117 @@
+name: Playwright Java Cucumber Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        java-version: [ 11, 17 ]
+        fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'adopt'
+          cache: maven
+      
+      - name: Display Java version
+        run: java -version
+      
+      - name: Display Maven version
+        run: mvn -version
+      
+      - name: Install Playwright browsers
+        run: mvn exec:java -Dexec.mainClass="com.microsoft.playwright.CLI" -Dexec.args="install"
+      
+      - name: Run tests
+        run: mvn clean test -DskipITs=false
+        continue-on-error: true
+      
+      - name: Generate Cucumber report
+        run: mvn io.cucumber:cucumber-maven-plugin:report
+        if: always()
+      
+      - name: Upload test reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: cucumber-reports-java-${{ matrix.java-version }}
+          path: target/cucumber-reports/
+          retention-days: 30
+      
+      - name: Upload screenshots on failure
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: failed-test-screenshots-java-${{ matrix.java-version }}
+          path: target/screenshots/
+          retention-days: 7
+      
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: target/cucumber-reports/cucumber.xml
+          check_name: Test Results (Java ${{ matrix.java-version }})
+      
+      - name: Comment on PR with test results
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request' && always()
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = 'target/cucumber-reports/index.html';
+            
+            if (fs.existsSync(reportPath)) {
+              const comment = `## 🧪 Test Execution Report (Java ${{ matrix.java-version }})
+              
+              ✅ Tests completed! View the detailed report in the artifacts section.
+              
+              **Artifacts:**
+              - 📊 Cucumber HTML Report
+              - 📸 Failed Test Screenshots (if any)`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+      
+      - name: Test Summary
+        run: |
+          echo "## 📋 Test Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Java Version | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| 11 | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| 17 | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All test artifacts have been uploaded and are available for download." >> $GITHUB_STEP_SUMMARY

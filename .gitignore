@@ -1,0 +1,56 @@
+# Maven
+target/
+*.jar
+*.war
+*.ear
+.m2/
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.eclipse
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+*.log
+
+# Test Reports
+/reports/
+/test-results/
+screenshots/
+cucumber-reports/
+
+# Gradle
+.gradle/
+build/
+
+# Node (if using Node tools)
+node_modules/
+package-lock.json
+
+# Temporary files
+*.tmp
+*.bak
+.classpath
+.project
+.settings/
+.ai-code-tracking.json
+setup-permissions.sh
+
+
+# Environment files
+.env
+.env.local
+*.properties.local
+
+# Playwright specific
+.cache/
+user-data/
